@@ -5,6 +5,7 @@ use zed_extension_api::{
     self as zed, Command, LanguageServerId, Result, Worktree, settings::LspSettings,
 };
 
+// Specify the LSP name as it should be written in the Zed settings json
 const LS_NAME: &'static str = "opengrep";
 
 struct OpenGrep;
