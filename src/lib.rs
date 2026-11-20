@@ -1,7 +1,8 @@
+// A simple LSP wrapper to use the opengrep LSP in Zed
+
 use std::env::consts::OS;
 use zed_extension_api::{
-    self as zed, Command, LanguageServerId, Result, Worktree,
-    settings::{CommandSettings, ContextServerSettings, LanguageSettings, LspSettings},
+    self as zed, Command, LanguageServerId, Result, Worktree, settings::LspSettings,
 };
 
 const LS_NAME: &'static str = "opengrep";
