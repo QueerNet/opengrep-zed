@@ -11,9 +11,82 @@ struct OpenGrep;
 impl OpenGrep {
     fn default_binary_path() -> String {
         match OS {
-            "linux" => "/usr/local/bin/opengrep".to_string(),
+            "linux" => "~/.local/bin/opengrep".to_string(),
             _ => "opengrep".to_string(),
         }
+    }
+
+    fn initialization_options(user: Option<Value>, settings: Value) -> Value {
+        let mut options = match user {
+            Some(Value::Object(map)) => Value::Object(map),
+            _ => Value::Object(Default::default()),
+        };
+        if let Value::Object(map) = &mut options {
+            map.entry("settings").or_insert(settings);
+        }
+        options
+    }
+
+    fn workspace_settings(worktree: &zed::Worktree) -> Value {
+        let mut settings = LspSettings::for_worktree(LS_NAME, worktree)
+            .ok()
+            .and_then(|settings| settings.settings)
+            .unwrap_or_else(|| Value::Object(Default::default()));
+        OpenGrep::resolve_relative_paths(&mut settings, &worktree.root_path());
+        settings
+    }
+
+    fn resolve_relative_paths(settings: &mut Value, root: &str) {
+        let Some(xml) = settings.get_mut("xml") else {
+            return;
+        };
+        if let Some(catalogs) = xml.get_mut("catalogs").and_then(Value::as_array_mut) {
+            for catalog in catalogs.iter_mut() {
+                if let Some(path) = catalog.as_str() {
+                    *catalog = Value::String(OpenGrep::absolute(path, root));
+                }
+            }
+        }
+        if let Some(associations) = xml
+            .get_mut("fileAssociations")
+            .and_then(Value::as_array_mut)
+        {
+            for association in associations.iter_mut() {
+                if let Some(system_id) = association.get_mut("systemId") {
+                    if let Some(path) = system_id.as_str() {
+                        *system_id = Value::String(OpenGrep::absolute(path, root));
+                    }
+                }
+            }
+        }
+    }
+
+    fn is_absolute(path: &str) -> bool {
+        let bytes = path.as_bytes();
+        path.starts_with('/')
+            || path.starts_with('\\')
+            || OpenGrep::has_uri_scheme(path)
+            || (bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':')
+    }
+
+    fn absolute(path: &str, root: &str) -> String {
+        if OpenGrep::is_absolute(path) {
+            return path.to_string();
+        }
+        let root = root.trim_end_matches(['/', '\\']);
+        let relative = path.trim_start_matches("./");
+        format!("{root}/{relative}")
+    }
+
+    fn has_uri_scheme(path: &str) -> bool {
+        let Some((scheme, _)) = path.split_once(':') else {
+            return false;
+        };
+        scheme.len() > 1
+            && scheme.starts_with(|c: char| c.is_ascii_alphabetic())
+            && scheme
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '+' | '-' | '.'))
     }
 }
 
@@ -51,17 +124,15 @@ impl zed::Extension for OpenGrep {
     fn language_server_initialization_options(
         &mut self,
         _language_server_id: &LanguageServerId,
-        _worktree: &Worktree,
+        worktree: &zed::Worktree,
     ) -> Result<Option<Value>> {
-        Ok(Some(json!({
-            "settings": {
-                "pro_intrafile": false,
-                "onlyGitDirty": false,
-                "timeoutThreshold": 5,
-                "ci": false,
-                "do_hover": true
-            }
-        })))
+        let user = LspSettings::for_worktree(LS_NAME, worktree)
+            .ok()
+            .and_then(|settings| settings.initialization_options);
+        Ok(Some(OpenGrep::initialization_options(
+            user,
+            OpenGrep::workspace_settings(worktree),
+        )))
     }
 }
 
