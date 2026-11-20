@@ -8,6 +8,7 @@ use zed_extension_api::{
 // Specify the LSP name as it should be written in the Zed settings json
 const LS_NAME: &'static str = "opengrep";
 
+// Unit struct to define our Extension
 struct OpenGrep;
 
 impl OpenGrep {
