@@ -11,7 +11,7 @@ struct OpenGrep;
 impl OpenGrep {
     fn default_binary_path() -> String {
         match OS {
-            "linux" => "~/.local/bin/opengrep".to_string(),
+            "linux" => "/home/mj/.local/bin/opengrep".to_string(),
             _ => "opengrep".to_string(),
         }
     }
