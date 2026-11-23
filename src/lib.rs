@@ -137,3 +137,30 @@ impl zed::Extension for OpenGrep {
 }
 
 zed::register_extension!(OpenGrep);
+
+#[cfg(test)]
+mod tests {
+    use zed_extension_api::serde_json::*;
+    fn initialization_options(user: Option<Value>, settings: Value) -> Value {
+        let mut options = match user {
+            Some(Value::Object(map)) => Value::Object(map),
+            _ => Value::Object(Default::default()),
+        };
+        if let Value::Object(map) = &mut options {
+            map.entry("settings").or_insert(settings);
+        }
+        options
+    }
+    #[test]
+    fn passes_the_settings_in_the_initialization_options() {
+        let settings = json!({ "opengrep": { "binary": {"path": "/home/mj/.local/bin/opengrep", "arguments":["lsp"]}}});
+        assert_eq!(
+            initialization_options(None, settings.clone()),
+            json!({ "opengrep": { "binary": {"path": "/home/mj/.local/bin/opengrep", "arguments":["lsp"]}}})
+        );
+        assert_eq!(
+            initialization_options(Some(json!({ "extendedClientCapabilities": {} })), settings),
+            json!({ "extendedClientCapabilities": {}, "settings": { "xml": { "catalogs": ["/c.xml"] } } })
+        );
+    }
+}
